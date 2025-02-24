@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>메모장</title>
+
+    <style>
+        .note {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .delete-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .pagination {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        .pagination button:disabled {
+            color: gray;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container"> <!--  div = division, 콘텐츠를 나누는 컨테이너 -->
+        <h1>📌 Flask 메모장</h1>
+        <form id="note-form">
+            <input type="text" id="title" placeholder="제목" required>
+            <textarea id="content" placeholder="내용" required></textarea>
+            <button type="submit">추가</button>
+        </form>
+        <div id="notes"></div>
+        <div class="pagination">
+            <button class="prev-btn" disabled>이전</button>
+            <span id="page-info">1</span>
+            <button class="next-btn">다음</button>
+        </div>
+    </div>
+
+    <script>
+        let page = 1;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const notesContainer = document.getElementById("notes");
+            const form = document.getElementById("note-form");
+            const titleInput = document.getElementById("title");
+            const contentInput = document.getElementById("content");
+            const pageInfo = document.getElementById("page-info");
+            const prevBtn = document.querySelector(".prev-btn");
+            const nextBtn = document.querySelector(".next-btn");
+
+            async function fetchNotes() {
+                const response = await fetch(`/api/notes?page=${page}`);
+                const { notes, total_pages } = await response.json();
+                notesContainer.innerHTML = "";
+                notes.forEach(note => addNoteToDOM(note));
+
+                // 페이지네이션 UI 업데이트
+                pageInfo.textContent = `${page} / ${total_pages}`;
+                prevBtn.disabled = page === 1;
+                nextBtn.disabled = page === total_pages;
+            }
+
+            async function deleteNote(id) {
+                console.log("id" + id);
+                await fetch(`/api/notes/${id}`, { method: "DELETE" });
+                document.location.reload();
+            }
+
+            function addNoteToDOM(note) {
+                const div = document.createElement("div");
+                div.classList.add("note");
+                div.innerHTML = `
+                    <h3>${note.title}</h3>
+                    <p>${note.content}</p>
+                    <button class='delete-btn'>삭제</button>
+                `;
+
+                const deleteButton = div.querySelector(".delete-btn");
+                deleteButton.addEventListener("click", () => deleteNote(note.id));
+
+                notesContainer.appendChild(div);
+            }
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const title = titleInput.value;
+                const content = contentInput.value;
+                const response = await fetch("/api/notes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title, content })
+                });
+                const newNote = await response.json();
+                addNoteToDOM(newNote);
+                titleInput.value = "";
+                contentInput.value = "";
+            });
+
+            window.addEventListener("scroll", () => {
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+                    fetchNotes();
+                }
+            });
+
+            const prevPageBtn = document.querySelector(".prev-btn");
+            prevPageBtn.addEventListener("click", () => {
+                if (page > 1) {
+                    page -= 1;
+                    fetchNotes();
+                }
+            });
+
+            const nextPageBtn = document.querySelector(".next-btn"); 
+            nextPageBtn.addEventListener("click", () => {
+                page += 1;
+                fetchNotes();
+            });
+
+            fetchNotes();
+        });
+
+    </script>
+</body>
+</html>
